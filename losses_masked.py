@@ -90,9 +90,11 @@ class SupConLoss(nn.Module):
         )
         mask = mask * logits_mask
 
+        # import pdb; pdb.set_trace()
+
         # compute log_prob
-        exp_logits = torch.exp(logits) * logits_mask
-        log_prob = logits - torch.log(exp_logits.sum(1, keepdim=True))
+        exp_logits = torch.exp(logits) * logits_mask * (1 - mask)
+        log_prob = logits - torch.log(exp_logits.sum(1, keepdim=True) + torch.exp(logits))
 
         # compute mean of log-likelihood over positive
         # modified to handle edge cases when there is no positive pair
@@ -137,7 +139,7 @@ if __name__=='__main__':
             denom = 0
             for i0a in range(batch_size):
                 for view0a in range(num_views):
-                    if i0a != i0 or view0a != view0:
+                    if labels[i0a] != labels[i0]:
                         za = features[i0a][view0a]
                         denom += torch.exp(torch.dot(zi, za) / temperature)
 
@@ -145,8 +147,7 @@ if __name__=='__main__':
                 for view0p in range(num_views):
                     if i0p != i0 or view0p != view0:
                         zp = features[i0p][view0p]
-                        loss_0 += torch.log(torch.exp(torch.dot(zi, zp) / temperature) / denom)
-
+                        loss_0 += torch.log(torch.exp(torch.dot(zi, zp) / temperature) / (denom + torch.exp(torch.dot(zi, zp) / temperature)))
 
     loss_1 = 0
     for i0 in range(4, 7):
@@ -156,7 +157,7 @@ if __name__=='__main__':
             denom = 0
             for i0a in range(batch_size):
                 for view0a in range(num_views):
-                    if i0a != i0 or view0a != view0:
+                    if labels[i0a] != labels[i0]:
                         za = features[i0a][view0a]
                         denom += torch.exp(torch.dot(zi, za) / temperature)
 
@@ -164,7 +165,7 @@ if __name__=='__main__':
                 for view0p in range(num_views):
                     if i0p != i0 or view0p != view0:
                         zp = features[i0p][view0p]
-                        loss_1 += torch.log(torch.exp(torch.dot(zi, zp) / temperature) / denom)
+                        loss_1 += torch.log(torch.exp(torch.dot(zi, zp) / temperature) / (denom + torch.exp(torch.dot(zi, zp) / temperature)))
 
     loss_2 = 0
     for i0 in range(7, 9):
@@ -174,7 +175,7 @@ if __name__=='__main__':
             denom = 0
             for i0a in range(batch_size):
                 for view0a in range(num_views):
-                    if i0a != i0 or view0a != view0:
+                    if labels[i0a] != labels[i0]:
                         za = features[i0a][view0a]
                         denom += torch.exp(torch.dot(zi, za) / temperature)
 
@@ -182,14 +183,14 @@ if __name__=='__main__':
                 for view0p in range(num_views):
                     if i0p != i0 or view0p != view0:
                         zp = features[i0p][view0p]
-                        loss_2 += torch.log(torch.exp(torch.dot(zi, zp) / temperature) / denom)
+                        loss_2 += torch.log(torch.exp(torch.dot(zi, zp) / temperature) / (denom + torch.exp(torch.dot(zi, zp) / temperature)))
 
     gt_loss = (-1/7 * loss_0 -1/5 * loss_1 -1/3 * loss_2) / (batch_size * num_views)
 
     computed_loss = loss_fn(features, labels)
 
-    print(gt_loss)
-    print(computed_loss)
+    print("Ground Truth", gt_loss)
+    print("Computed", computed_loss)
 
     assert gt_loss - computed_loss < 1e-10
 
